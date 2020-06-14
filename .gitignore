@@ -7,3 +7,7 @@ build/
 *.fls
 *.log
 *.synctex.gz
+
+# Ignore the YOLO weights
+dat/yolo/yolov3-tiny.weights
+dat/yolo/yolov3.weights
