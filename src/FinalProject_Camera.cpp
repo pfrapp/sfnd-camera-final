@@ -69,14 +69,18 @@ int main(int argc, const char *argv[])
     P_rect_00.at<double>(2,0) = 0.000000e+00; P_rect_00.at<double>(2,1) = 0.000000e+00; P_rect_00.at<double>(2,2) = 1.000000e+00; P_rect_00.at<double>(2,3) = 0.000000e+00;    
 
     // misc
-    double sensorFrameRate = 10.0 / imgStepWidth; // frames per second for Lidar and camera
-    int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
-    vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
-    bool bVis = false;            // visualize results
+    double sensorFrameRate = 10.0 / imgStepWidth;       // frames per second for Lidar and camera
+    constexpr int dataBufferSize = 2;                   // no. of images which are held in memory (ring buffer) at the same time
+    RingBuffer<DataFrame, dataBufferSize> dataBuffer;   // list of data frames which are held in memory at the same time
+    bool bVis = false;                                  // visualize results
+
+    // For the last tasks in the mid-term project regarding performance,
+    // we need some variables to keep track of the data over all images.
+    PerformanceEvaluation performance_eval;
 
     /* MAIN LOOP OVER ALL IMAGES */
-
-    for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex; imgIndex+=imgStepWidth)
+    size_t imgIndex = 0;
+    for (; imgIndex <= imgEndIndex - imgStartIndex; imgIndex+=imgStepWidth)
     {
         /* LOAD IMAGE INTO BUFFER */
 
@@ -140,7 +144,7 @@ int main(int argc, const char *argv[])
         
         
         // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
-        continue; // skips directly to the next image without processing what comes beneath
+        // continue; // skips directly to the next image without processing what comes beneath
 
         /* DETECT IMAGE KEYPOINTS */
 
@@ -151,14 +155,44 @@ int main(int argc, const char *argv[])
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
         string detectorType = "SHITOMASI";
-
-        if (detectorType.compare("SHITOMASI") == 0)
-        {
-            detKeypointsShiTomasi(keypoints, imgGray, false);
+        if (argc > 1) {
+            detectorType = argv[1];
+            cout << "Setting the keypoint detector type based on the command line: " << detectorType << "\n";
         }
-        else
-        {
-            //...
+        performance_eval.detectorType(detectorType);
+
+        double processing_time = 0.0;
+        if (detectorType.compare("SHITOMASI") == 0) {
+            detKeypointsShiTomasi(keypoints, imgGray, processing_time, false);
+        }
+        else if (detectorType.compare("HARRIS") == 0) {
+            detKeypointsHarris(keypoints, imgGray, processing_time, false);
+        }
+        else if (detectorType.compare("FAST") == 0) {
+            detKeypointsFast(keypoints, imgGray, processing_time, false);
+        }
+        else if (detectorType.compare("BRISK") == 0) {
+            detKeypointsBrisk(keypoints, imgGray, processing_time, false);
+        }
+        else if (detectorType.compare("ORB") == 0) {
+            detKeypointsOrb(keypoints, imgGray, processing_time, false);
+        }
+        else if (detectorType.compare("AKAZE") == 0) {
+            detKeypointsAkaze(keypoints, imgGray, processing_time, false);
+        }
+        else if (detectorType.compare("SIFT") == 0) {
+            detKeypointsSift(keypoints, imgGray, processing_time, false);
+        } else {
+            std::cerr << "\n *** Error: You requested an invalid keypoint detector by providing " << detectorType;
+            std::cerr << "\n *** Allowed keypoint detectors are: SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT\n\n";
+            return -1;
+        }
+        performance_eval.addDetectorTime(processing_time);
+
+        // For the performance evaluation, draw the keypoints and save an image.
+        // The image files are used for the writeup / readme.
+        if (false) {
+            performance_eval.writeImage(dataPath + "writeup/keypoints/", img, keypoints);
         }
 
         // optional : limit number of keypoints (helpful for debugging and learning)
@@ -185,7 +219,14 @@ int main(int argc, const char *argv[])
 
         cv::Mat descriptors;
         string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
-        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
+        if (argc > 2) {
+            descriptorType = argv[2];
+            cout << "Setting the descriptor type based on the command line: " << descriptorType << "\n";
+        }
+        performance_eval.descriptorType(descriptorType);
+        DescriptorType dt;
+        processing_time = 0.0;
+        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType, dt, processing_time);
 
         // push descriptors for current frame to end of data buffer
         (dataBuffer.end() - 1)->descriptors = descriptors;
@@ -200,12 +241,23 @@ int main(int argc, const char *argv[])
 
             vector<cv::DMatch> matches;
             string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+            string descriptorType; // DES_BINARY, DES_HOG
+            switch(dt) {
+                case DescriptorType::BINARY:
+                    descriptorType = "DES_BINARY";
+                    break;
+                case DescriptorType::HOG:
+                    descriptorType = "DES_HOG";
+                    break;
+            }
+            string selectorType = "SEL_KNN";       // SEL_NN, SEL_KNN
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
                              (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
                              matches, descriptorType, matcherType, selectorType);
+            
+            // Count the total number of matches for the performance evaulation statistics
+            performance_eval.addMatchedKeypoints(matches.size());
 
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;
