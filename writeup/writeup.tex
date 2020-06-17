@@ -20,6 +20,34 @@ The document at hand represents the readme file.
 \section*{FP.1 Match 3D Objects}
 \textcolor{gray}{\textit{Implement the method "matchBoundingBoxes", which takes as input both the previous and the current data frames and provides as output the ids of the matched regions of interest (i.e. the boxID property). Matches must be the ones with the highest number of keypoint correspondences.}}
 
+As a first step, I changed the references to be \texttt{const} whenever possible.
+That is nothing functional, but makes the code a bit safer.
+
+In order to address the matching of the box identifiers, I decided to implement a greedy algorithm.
+As a foundation, I set up a matrix which contains a row for every box ID in the previous frame,
+and a column for every box ID in the current frame.
+Every element of this matrix corresponds therefore represents a concatenation between two box identifiers
+and therefore objects (vehicles).
+The keypoint matches are now filled into this matrix.
+Once the matrix is complete, I greedily select the elements with the largest number of keypoint matches.
+The position in the matrix (row and column) then connects the box identifiers between the previous
+and the current frame. Once a connection is established, the entire row and column is set to zero,
+as this identifier pair has now been dealt with.
+
+In order to get a better feeling for what is going on, I created some visual debug output in the
+form of images, see Figure~\ref{fig:matching_3d_objects}.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\columnwidth]{./img/3D_object_matching}
+	\caption{Simultaneous visualization of the 3D top view from the previous and current frame,
+		along with the keypoint descriptor matching, the latter being augmented by the
+		2D bounding boxes.
+		In this specific scene, the identifier of the leading vehicle changes
+		from 5 to 3.}
+	\label{fig:matching_3d_objects}
+\end{figure}
+
 \section*{FP.2 Compute Lidar-based TTC}
 \textcolor{gray}{\textit{Compute the time-to-collision in second for all matched 3D objects using only Lidar measurements from the matched bounding boxes between current and previous frame. }}
 

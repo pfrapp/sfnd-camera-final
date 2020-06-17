@@ -61,7 +61,7 @@ void clusterLidarWithROI(std::vector<BoundingBox> &boundingBoxes, std::vector<Li
 }
 
 
-void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, bool bWait)
+void show3DObjects(const std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, bool bWait, std::string windowName)
 {
     // create topview image
     cv::Mat topviewImg(imageSize, CV_8UC3, cv::Scalar(255, 255, 255));
@@ -119,7 +119,6 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
     }
 
     // display image
-    string windowName = "3D Objects";
     cv::namedWindow(windowName, 1);
     cv::imshow(windowName, topviewImg);
 
@@ -152,7 +151,158 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 }
 
 
-void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
+void matchBoundingBoxes(const std::vector<cv::DMatch> &matches,
+                        std::map<int, int> &bbBestMatches,
+                        const DataFrame &prevFrame,
+                        const DataFrame &currFrame)
 {
-    // ...
+    bool bVis = false;
+
+    // Note: When enabling this visualization, make sure to not focus on the ego
+    // lane. This can be done by setting maxY to 20.0 (instead of 2.0) in
+    // the program's main function.
+
+    if (bVis) {
+        // Draw the keypoint matches.
+        // query is source, train is reference.
+        // Here source is the previous, and reference is the current frame.
+        cv::Mat matchImg = prevFrame.cameraImg.clone();
+        cv::Mat matchImgEmpty = prevFrame.cameraImg.clone();
+        cv::Mat prevImage = prevFrame.cameraImg.clone();
+        cv::Mat currImage = currFrame.cameraImg.clone();
+        // Also draw the region of interests into the image.
+        for (const BoundingBox &bbox : prevFrame.boundingBoxes) {
+            const cv::Rect &rt = bbox.roi;
+            cv::rectangle(prevImage, rt, cv::Scalar(0, 0, 255), 2);
+            cv::putText(prevImage, std::to_string(bbox.boxID), cv::Point(rt.x, rt.y),  cv::FONT_ITALIC, 1.2, cv::Scalar(255, 0, 0), 2);
+        }
+        for (const BoundingBox &bbox : currFrame.boundingBoxes) {
+            const cv::Rect &rt = bbox.roi;
+            cv::rectangle(currImage, rt, cv::Scalar(0, 0, 255), 2);
+            cv::putText(currImage, std::to_string(bbox.boxID), cv::Point(rt.x, rt.y),  cv::FONT_ITALIC, 1.2, cv::Scalar(255, 0, 0), 2);
+        }
+        cv::drawMatches(prevImage, prevFrame.keypoints, currImage, currFrame.keypoints, matches,
+                        matchImg, cv::Scalar::all(-1), cv::Scalar::all(-1), vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+        std::vector<cv::DMatch> empty_matches;
+        cv::drawMatches(prevImage, prevFrame.keypoints, currImage, currFrame.keypoints, empty_matches,
+                        matchImgEmpty, cv::Scalar::all(-1), cv::Scalar::all(-1), vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+
+        // Overlay
+        float opacity = 0.4;
+        cv::addWeighted(matchImg, opacity, matchImgEmpty, 1 - opacity, 0, matchImgEmpty);
+
+        string windowName = "Matching keypoints between two camera images";
+        cv::namedWindow(windowName, 7);
+        cv::imshow(windowName, matchImgEmpty);
+    }
+
+
+    // Create the matrix for the greedy algorithm and fill it.
+    // Row count: Number of boxes in the previous frame.
+    // Column count: Number of boxes in the current frame.
+    int num_boxes_previous_frame = prevFrame.boundingBoxes.size();
+    int num_boxes_current_frame = currFrame.boundingBoxes.size();
+    // std::cout << "There are " << num_boxes_previous_frame << " boxes in the previous frame.\n";
+    // std::cout << "There are " << num_boxes_current_frame << " boxes in the current frame.\n";
+
+    // Note: in cv::Size, the width is the number of columns, and the height is the number of rows.
+    cv::Mat keypoint_match_distribution = cv::Mat::zeros(cv::Size(num_boxes_current_frame, num_boxes_previous_frame), CV_32FC1);
+    // std::cout << "The matrix has " << keypoint_match_distribution.rows << " rows and " << keypoint_match_distribution.cols << " columns\n";
+    
+    for (const cv::DMatch &m : matches) {
+
+        for (const BoundingBox &bbox_prev_frame : prevFrame.boundingBoxes) {
+
+            int bbox_prev_frame_id = bbox_prev_frame.boxID;
+
+            // Query is source and the previous frame.
+            const cv::Point2f &kpt_prev = prevFrame.keypoints[m.queryIdx].pt;
+
+            // Check if the keypoint is in the previous frame's bounding box
+            // which is currently under consideration.
+            if (bbox_prev_frame.roi.contains(cv::Point2i((int) kpt_prev.x, (int) kpt_prev.y))) {
+
+                for (const BoundingBox &bbox_curr_frame : currFrame.boundingBoxes) {
+
+                    int bbox_curr_frame_id = bbox_curr_frame.boxID;
+
+                    // Error check.
+                    if ((bbox_prev_frame_id < 0) || (bbox_prev_frame_id >= num_boxes_previous_frame)
+                        || (bbox_curr_frame_id < 0) || (bbox_curr_frame_id >= num_boxes_current_frame)) {
+                        std::cerr << "Error: Invalid box identifier!\n";
+                        break;
+                    }
+
+                    // Train is reference and the current frame.
+                    const cv::Point2f &kpt_curr = currFrame.keypoints[m.trainIdx].pt;
+                    if (bbox_curr_frame.roi.contains(cv::Point2i((int) kpt_curr.x, (int) kpt_prev.y))) {
+                        keypoint_match_distribution.at<float>(bbox_prev_frame_id, bbox_curr_frame_id) += 1.0f;
+                    }
+
+                }
+
+            } // end if (bbox_prev_frame.roi.contains(cv::Point2i((int) kpt_prev.x, (int) kpt_prev.y)))
+
+        }
+    }
+
+    // Print the matrix
+    auto print_matrix = [](const cv::Mat &mat) {
+        for (int rr=0; rr<mat.rows; rr++) {
+            for (int cc = 0; cc<mat.cols; cc++) {
+                std::cout << mat.at<float>(rr, cc) << ", ";
+            }
+            std::cout << "\n";
+        }
+    };
+    // std::cout << "keypoint_match_distribution is:\n";
+    // print_matrix(keypoint_match_distribution);
+
+    // Helpers to set rows and columns of a float matrix to zero.
+    auto zero_row_and_column = [](cv::Mat *mat, int row, int col) {
+        // Set the row to zero.
+        for (int cc=0; cc<mat->cols; cc++) {
+            mat->at<float>(row, cc) = 0.0f;
+        }
+        // Set the column to zero.
+        for (int rr=0; rr<mat->rows; rr++) {
+            mat->at<float>(rr, col) = 0.0f;
+        }
+    };
+
+    // Run the greedy algorithm until the matrix is all zeros.
+    while (true) {
+        cv::Mat_<typename cv::DataType<float>::value_type>::iterator it
+            = std::max_element(keypoint_match_distribution.begin<float>(), keypoint_match_distribution.end<float>());
+        // std::cout << "Max element is at x=" << it.pos().x << ", y=" << it.pos().y << " with value " << (*it) << "\n";
+
+        // Number of keypoint matches that support this bounding box match.
+        // This value is not used, but might be interesting to look at.
+        float number_keypoint_matches = (*it);
+        if ((*it) < 1.0f) {
+            // If we are here, we have found all bounding box matches.
+            break;
+        }
+        int bbox_prev_frame_id = it.pos().y;
+        int bbox_curr_frame_id = it.pos().x;
+        // std::cout << "Found a match! Previous frame box ID " << it.pos().y
+        //     << " --> Current frame box ID " << bbox_curr_frame_id << ", supported by "
+        //     << number_keypoint_matches << " keypoint matches.\n";
+        
+        // 'first' of the matches-map corresponds to the previous frame.
+        // 'second' of the matches-map corresponds to the current frame.
+        bbBestMatches.insert(std::pair<int, int>(bbox_prev_frame_id, bbox_curr_frame_id));
+
+        // x is the column, y is the row.
+        // row is the previous frame, column is the current frame.
+        // Therefore x is the current frame, y is the previous frame.
+        zero_row_and_column(&keypoint_match_distribution, it.pos().y, it.pos().x);
+    }
+    // Done with the greedy bounding box matching.
+
+    if (bVis) {
+        show3DObjects(prevFrame.boundingBoxes, cv::Size(20.0, 25.0), cv::Size(2000, 2000), false, "Previous frame");
+        show3DObjects(currFrame.boundingBoxes, cv::Size(20.0, 25.0), cv::Size(2000, 2000), true, "Current frame");
+    }
+
 }
