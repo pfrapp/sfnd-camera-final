@@ -558,6 +558,13 @@ public:
 								    int maxIterations,
 									float distanceTol);
 
+	//! Plane RANSAC with constrained normal vector.
+    std::unordered_set<int> RansacPlaneConstraintNormal(linalg::Plane<double> *ptr_plane,
+                                    typename pcl::PointCloud<PointT>::Ptr cloud,
+									linalg::Vector3<double> plane_normal,
+								    int maxIterations,
+									float distanceTol);
+
     //! My own clustering function
     std::vector<typename pcl::PointCloud<PointT>::Ptr> MyClustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize);
 

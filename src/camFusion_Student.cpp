@@ -7,6 +7,7 @@
 
 #include "camFusion.hpp"
 #include "dataStructures.h"
+#include "processPointClouds.h"
 
 using namespace std;
 
@@ -159,8 +160,44 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     // In order to remove outliers, use RANSAC.
     // The code has been taken from my Lidar submission and has been adjusted
     // in order to account for the data types used in this Camera project.
+    linalg::Vector3<double> plane_normal(1.0, 0.0, 0.0);
 
+    //
+    // Perform computations for the previous frame.
+    //
+    ProcessPointClouds<LidarPoint> point_processor;
+    pcl::PointCloud<LidarPoint>::Ptr lidar_point_cloud_prev(new pcl::PointCloud<LidarPoint>);
+    lidar_point_cloud_prev->points = lidarPointsPrev;
+    // Plane coefficients of the lead vehicle's tail for the previous frame.
+    linalg::Plane<double> plane_lead_vehicle_previous;
 
+    point_processor.RansacPlaneConstraintNormal(&plane_lead_vehicle_previous, lidar_point_cloud_prev, plane_normal, 200, 0.1);
+
+    // Plot the coefficients
+    std::cout << "Plane coefficients of vehicle tail for the previous frame: ";
+    std::cout << plane_lead_vehicle_previous.a << ", " << plane_lead_vehicle_previous.b << ", " << plane_lead_vehicle_previous.c << ", " << plane_lead_vehicle_previous.d;
+    std::cout << std::endl;
+
+    //
+    // Perform computations for the current frame.
+    //
+    pcl::PointCloud<LidarPoint>::Ptr lidar_point_cloud_current(new pcl::PointCloud<LidarPoint>);
+    lidar_point_cloud_current->points = lidarPointsCurr;
+    // Plane coefficients of the lead vehicle's tail for the current frame.
+    linalg::Plane<double> plane_lead_vehicle_current;
+
+    point_processor.RansacPlaneConstraintNormal(&plane_lead_vehicle_current, lidar_point_cloud_current, plane_normal, 200, 0.1);
+
+    // Plot the coefficients
+    std::cout << "Plane coefficients of vehicle tail for the current frame: ";
+    std::cout << plane_lead_vehicle_current.a << ", " << plane_lead_vehicle_current.b << ", " << plane_lead_vehicle_current.c << ", " << plane_lead_vehicle_current.d;
+    std::cout << std::endl;
+
+    // Compute the distances
+    double d1 = plane_lead_vehicle_current.distance(linalg::Vector3<double>(0.0, 0.0, 0.0));
+    double d0 = plane_lead_vehicle_previous.distance(linalg::Vector3<double>(0.0, 0.0, 0.0));
+
+    std::cout << "### d0 = " << d0 << ", d1 = " << d1 << ", vehicle approached " << (d0-d1) << ".\n";
 }
 
 

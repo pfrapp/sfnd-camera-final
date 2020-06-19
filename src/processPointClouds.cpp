@@ -146,7 +146,7 @@ std::unordered_set<int> ProcessPointClouds<PointT>::RansacPlane(
 			// Elements in the unordered set are guaranteed to be unique
 			inliers.insert(r);
 		}
-		// Create a vector easy access
+		// Create a vector for easy access
 		std::vector<int> inliers_vec(inliers.begin(), inliers.end());
 		//std::cout << "* Chose indices: " << inliers_vec[0] << ", "
 	//			 << inliers_vec[1] << ", " << inliers_vec[2] << std::endl;
@@ -207,6 +207,86 @@ std::unordered_set<int> ProcessPointClouds<PointT>::RansacPlane(
 	// This is the consensus set
 	return inliersResult;
 
+}
+
+
+template<typename PointT>
+std::unordered_set<int> ProcessPointClouds<PointT>::RansacPlaneConstraintNormal(linalg::Plane<double> *ptr_plane,
+                                typename pcl::PointCloud<PointT>::Ptr cloud,
+                                linalg::Vector3<double> plane_normal,
+                                int maxIterations,
+                                float distanceTol) {
+	std::unordered_set<int> inliersResult;
+	srand(time(NULL));
+
+    // Normalize the plane normal vector.
+    plane_normal.normalize();
+
+	int point_count = cloud->points.size();
+	std::cout << "Plane RANSAC: There are " << point_count << " points in the PC\n";
+	std::cout << "Contrained normalized plane normal vector is " << plane_normal << ".\n";
+
+    linalg::Plane<double> plane;
+
+	// For max iterations 
+	while(maxIterations--) {
+
+		// Randomly sample subset and fit plane
+		std::unordered_set<int> inliers;
+		while (inliers.size() < 1) {
+			int r = rand();
+			r = r % point_count;
+			// Elements in the unordered set are guaranteed to be unique
+			inliers.insert(r);
+		}
+		// Create a vector for easy access
+		std::vector<int> inliers_vec(inliers.begin(), inliers.end());
+		
+		// Compute the plane parameters
+		// First of all, grab one point on the plane.
+        // This is enough as we are constraining the plane's normal vector.
+		linalg::Vector3<double> p1(cloud->points[inliers_vec[0]].x, cloud->points[inliers_vec[0]].y, cloud->points[inliers_vec[0]].z);
+		auto n = plane_normal;
+		
+		plane.a = n.x;
+		plane.b = n.y;
+		plane.c = n.z;
+		plane.d = -1.0 * (n.dot(p1));
+		// The plane is now fit and ready to use
+
+		// Measure distance between every point and the fitted plane
+		for (int ii=0; ii<point_count; ii++) {
+			// Check if the point was one of the three points to
+			// create the plane. If so, continue.
+			if (inliers.count(ii) > 0) {
+				continue;
+			}
+
+			linalg::Vector3<double> pt(cloud->points[ii].x, cloud->points[ii].y, cloud->points[ii].z);
+			double distance = plane.distance(pt);
+
+			// If distance is smaller than threshold count it as inlier
+			if (distance <= distanceTol) {
+				inliers.insert(ii);
+			}
+		}
+
+		// Check if this is our new consensus set
+		if (inliers.size() > inliersResult.size()) {
+			//std::cout << "* The consensus set has now " << inliers.size() << " inliers.\n";
+			inliersResult = inliers;
+
+            // This is the new best plane.
+            if (ptr_plane != nullptr) {
+                *ptr_plane = plane;
+            }
+		}
+
+	}
+
+	// Return indicies of inliers from fitted line with most inliers
+	// This is the consensus set
+	return inliersResult;
 }
 
 
