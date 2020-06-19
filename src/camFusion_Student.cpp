@@ -147,7 +147,20 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+    // According to lesson 2, the formula for the TTC is:
+    // TTC = d_1 / v_0 = d_1 * deltaT / (d0 - d1)
+    // with
+    //  d0      ... Distance from our vehicle to the lead vehicle in the previous frame (index 0)
+    //  d1      ... Distance from our vehicle to the lead vehicle in the current frame (index 1)
+    //  v0      ... Velocity
+    //  deltaT  ... Step size
+
+    // Fit a plane with normal vector n = [1, 0, 0] through both point clouds (previous and current).
+    // In order to remove outliers, use RANSAC.
+    // The code has been taken from my Lidar submission and has been adjusted
+    // in order to account for the data types used in this Camera project.
+
+
 }
 
 

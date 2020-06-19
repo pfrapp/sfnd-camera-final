@@ -51,6 +51,17 @@ struct DataFrame { // represents the available sensor information at the same ti
     std::map<int,int> bbMatches; // bounding box matches between previous and current frame
 };
 
+// Taken from the Lidar project.
+struct Box
+{
+	float x_min;
+	float y_min;
+	float z_min;
+	float x_max;
+	float y_max;
+	float z_max;
+};
+
 
 //
 // Websites which have been used as a reference for implementing this ringbuffer:
