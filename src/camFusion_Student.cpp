@@ -274,7 +274,6 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, const std::vector<cv::Ke
             double euclidean_diff = std::hypot(x_diff, y_diff);
             if (std::abs(euclidean_diff - euclidean_diff_mean) < 2.0 * euclidean_diff_std) {
                 boundingBox.kptMatches.push_back(match);
-                boundingBox.keypoints.push_back(kpt_current_frame);
             } else {
                 // std::cout << "Found an outlier with x_diff = " << x_diff << ", y_diff = " << y_diff << "\n";
             }
@@ -285,10 +284,50 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, const std::vector<cv::Ke
 
 
 // Compute time-to-collision (TTC) based on keypoint correspondences in successive images
-void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
-                      std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
+void computeTTCCamera(const std::vector<cv::KeyPoint> &kptsPrev, const std::vector<cv::KeyPoint> &kptsCurr, 
+                      const std::vector<cv::DMatch> kptMatches, const double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // ...
+    // Compute the height ratio h_1 / h_0 by means of the keypoints
+    // as has been explained in Lesson 3, Concept 3.
+    // Use the mean over all distance ratios.
+    double mean_keypoint_diff_ratio_current_to_previous;
+    int N = 0;
+
+    for (const cv::DMatch &start_point : kptMatches) {
+        // query is source, train is reference.
+        // Here source is the previous, and reference is the current frame.
+        const cv::KeyPoint &kpt_start_previous_frame = kptsPrev[start_point.queryIdx];
+        const cv::KeyPoint &kpt_start_current_frame = kptsCurr[start_point.trainIdx];
+
+        for (const cv::DMatch &end_point : kptMatches) {
+            if ((start_point.queryIdx == end_point.queryIdx)
+                 && (start_point.trainIdx == end_point.trainIdx)) {
+                continue;
+            }
+
+            const cv::KeyPoint &kpt_end_previous_frame = kptsPrev[end_point.queryIdx];
+            const cv::KeyPoint &kpt_end_current_frame = kptsCurr[end_point.trainIdx];
+
+            double x_diff_previous = kpt_end_previous_frame.pt.x - kpt_start_previous_frame.pt.x;
+            double y_diff_previous = kpt_end_previous_frame.pt.y - kpt_start_previous_frame.pt.y;
+            double distance_previous = std::hypot(x_diff_previous, y_diff_previous);            
+
+            double x_diff_current = kpt_end_current_frame.pt.x - kpt_start_current_frame.pt.x;
+            double y_diff_current = kpt_end_current_frame.pt.y - kpt_start_current_frame.pt.y;
+            double distance_current = std::hypot(x_diff_current, y_diff_current);  
+
+            double keypoint_diff_ratio_current_to_previous = distance_current / distance_previous;
+            mean_keypoint_diff_ratio_current_to_previous += keypoint_diff_ratio_current_to_previous;
+            N++;
+        }
+    }
+    mean_keypoint_diff_ratio_current_to_previous /= N;
+
+    // std::cout << "Mean keypoint distance ratio current-to-previous = " << mean_keypoint_diff_ratio_current_to_previous << ".\n";
+
+    // Compute the time stamp delta.
+    double deltaT = 1.0 / frameRate;
+    TTC = -deltaT / (1.0 - mean_keypoint_diff_ratio_current_to_previous);
 }
 
 

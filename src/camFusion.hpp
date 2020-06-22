@@ -16,8 +16,8 @@ void show3DObjects(const std::vector<BoundingBox> &boundingBoxes, cv::Size world
 
 void showLeadVehicleTailPlane(const std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, bool bWait, double distance);
 
-void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr,
-                      std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg=nullptr);
+void computeTTCCamera(const std::vector<cv::KeyPoint> &kptsPrev, const std::vector<cv::KeyPoint> &kptsCurr,
+                      const std::vector<cv::DMatch> kptMatches, const double frameRate, double &TTC, cv::Mat *visImg=nullptr);
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC, double &distance);                  
 #endif /* camFusion_hpp */
