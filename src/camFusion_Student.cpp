@@ -203,9 +203,84 @@ void showLeadVehicleTailPlane(const std::vector<BoundingBox> &boundingBoxes, cv:
 
 
 // associate a given bounding box with the keypoints it contains
-void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
+void clusterKptMatchesWithROI(BoundingBox &boundingBox, const std::vector<cv::KeyPoint> &kptsPrev, const std::vector<cv::KeyPoint> &kptsCurr, const std::vector<cv::DMatch> &kptMatches)
 {
-    // ...
+    // The variable 'boundingBox' is the bounding of of the current frame.
+    // In the beginning, when this function is called, both
+    // boundingBox.keypoints.size() and boundingBox.kptMatches.size()
+    // are zero.
+
+    // The function 'computeTTCCamera' uses the kptMatches which belongs
+    // to the current bounding box, not the one which is contained in the
+    // data frame.
+
+    // Task: Fill the members 'keypoints' and 'kptMatches' of the boundingBox.
+
+    // Compute the mean of the Euclidean distances of the keypoint
+    // matches which belong to this bounding box.
+    // The distance is computed based on a vector which points from
+    // the previous frame's keypoint to the current frame's keypoint.
+    double euclidean_diff_mean = 0.0;
+    int N_keypoints = 0;
+    for (const cv::DMatch &match : kptMatches) {
+        // query is source, train is reference.
+        // Here source is the previous, and reference is the current frame.
+        const cv::KeyPoint &kpt_previous_frame = kptsPrev[match.queryIdx];
+        const cv::KeyPoint &kpt_current_frame = kptsCurr[match.trainIdx];
+        if (boundingBox.roi.contains(kpt_current_frame.pt)) {
+            N_keypoints++;
+            double x_diff = kpt_current_frame.pt.x - kpt_previous_frame.pt.x;
+            double y_diff = kpt_current_frame.pt.y - kpt_previous_frame.pt.y;
+            // std::cout << "Keypoint " << N_keypoints << ": Previous=(" << kpt_previous_frame.pt.x << ", "
+            //     << kpt_previous_frame.pt.y << "), Current=(" << kpt_current_frame.pt.x << ", " <<
+            //     kpt_current_frame.pt.y << "), x_diff = " << x_diff << ", y_diff = " << y_diff << "\n";
+            double euclidean_diff = std::hypot(x_diff, y_diff);
+            euclidean_diff_mean += euclidean_diff;
+        }
+    }
+    euclidean_diff_mean /= N_keypoints;
+
+    // Compute the sample standard deviation.
+
+    double euclidean_diff_std = 0.0;
+    for (const cv::DMatch &match : kptMatches) {
+        // query is source, train is reference.
+        // Here source is the previous, and reference is the current frame.
+        const cv::KeyPoint &kpt_previous_frame = kptsPrev[match.queryIdx];
+        const cv::KeyPoint &kpt_current_frame = kptsCurr[match.trainIdx];
+        if (boundingBox.roi.contains(kpt_current_frame.pt)) {
+            double x_diff = kpt_current_frame.pt.x - kpt_previous_frame.pt.x;
+            double y_diff = kpt_current_frame.pt.y - kpt_previous_frame.pt.y;
+            double euclidean_diff = std::hypot(x_diff, y_diff);
+            euclidean_diff_std += (euclidean_diff - euclidean_diff_mean) * (euclidean_diff - euclidean_diff_mean);
+        }
+    }
+    euclidean_diff_std = std::sqrt( euclidean_diff_std / (N_keypoints - 1) );
+
+    // std::cout << "For bbox with id " << boundingBox.boxID << ": Euclidean distance mean=" << euclidean_diff_mean
+    //     << ", std=" << euclidean_diff_std << ".\n";
+
+    // Only consider those keypoint matches which have a Euclidean distance
+    // deviation which is smaller than two times the standard deviation sigma.
+
+    for (const cv::DMatch &match : kptMatches) {
+        // query is source, train is reference.
+        // Here source is the previous, and reference is the current frame.
+        const cv::KeyPoint &kpt_previous_frame = kptsPrev[match.queryIdx];
+        const cv::KeyPoint &kpt_current_frame = kptsCurr[match.trainIdx];
+        if (boundingBox.roi.contains(kpt_current_frame.pt)) {
+            double x_diff = kpt_current_frame.pt.x - kpt_previous_frame.pt.x;
+            double y_diff = kpt_current_frame.pt.y - kpt_previous_frame.pt.y;
+            double euclidean_diff = std::hypot(x_diff, y_diff);
+            if (std::abs(euclidean_diff - euclidean_diff_mean) < 2.0 * euclidean_diff_std) {
+                boundingBox.kptMatches.push_back(match);
+                boundingBox.keypoints.push_back(kpt_current_frame);
+            } else {
+                // std::cout << "Found an outlier with x_diff = " << x_diff << ", y_diff = " << y_diff << "\n";
+            }
+        }
+    }
+
 }
 
 

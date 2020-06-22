@@ -89,6 +89,26 @@ to compute the RANSAC. The point cloud library is not needed.
 \section*{FP.3 Associate Keypoint Correspondences with Bounding Boxes}
 \textcolor{gray}{\textit{Prepare the TTC computation based on camera measurements by associating keypoint correspondences to the bounding boxes which enclose them. All matches which satisfy this condition must be added to a vector in the respective bounding box.}}
 
+First of all, as before,
+const correctness is established (not related to the
+function though).
+
+As has been recommended by Andreas Haja, I looped over all
+keypoint matches and checked if the associated current keypoint
+is within the region of interest.
+This is a necessary requirement.
+It is however not sufficient for a valid keypoint match, as
+there might be outliers.
+Therefore, as has also been recommended, I computed the
+Euclidean distance~$d$ for every keypoint match (in the region of interest).
+Based on those distances, I computed the mean~$\mu$ and the
+standard deviation~$\sigma$.
+A keypoint match is then declared to be valid if
+\begin{equation}
+	|d - \mu| < 2 \sigma.
+\end{equation}
+This means that it must not be too far off.
+
 \section*{FP.4 Compute Camera-based TTC}
 \textcolor{gray}{\textit{Compute the time-to-collision in second for all matched 3D objects using only keypoint correspondences from the matched bounding boxes between current and previous frame.}}
 
