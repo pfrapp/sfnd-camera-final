@@ -59,7 +59,7 @@ with $d_0$ being the distance from our vehicle to the lead vehicle in the previo
 and $d_1$ being the distance from our vehicle to the lead vehicle in the current frame (index 1).
 $v_0$ is the velocity. As it is a constant velocity model, $v_0 = v_1$.
 $\Delta t$ is the step size, i.e., the difference between the time stamps of
-the individual measurements.
+the individual measurements. $\Delta t$ is the reciprocal of the frame rate.
 
 The current model for the vehicle extent consists of axis-aligned bounding boxes.
 In other words, any (non-zero) orientation of the vehicles as well as
@@ -68,9 +68,22 @@ For this reason, it is valid to assume that the tail of the vehicles can be repr
 by a plane with a normal vector which is pointing along the ego vehicle's $x$-axis
 ($x$ pointing forward in accordance with ISO 8855 and as used throughout this course).
 This in turn allows us to use the plane fitting RANSAC from the Lidar course
-in order to robustly estimate the tail of the lead vehicle, thereby removing outliers.
+in order to robustly estimate the tail of the lead vehicle, thereby removing outliers, as
+can be seen in Figure~\ref{fig:lidar_ransac}.
 I included my Lidar code into the project, slightly adapted for the Camera course data types, in order
 to compute the RANSAC. The point cloud library is not needed.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\columnwidth]{./img/lidar_ransac_vehicle_tail}
+	\caption{Estimation of the tail of the lead vehicle by means of plane
+			fitting using RANSAC. The plane is constrained to have
+			a normal vector which is pointing along the $x$-axis.
+			In the top view, the red line represents the plane.
+			Note how the outlier in the bottom right region enlarges
+			the bounding box, but is rejected by the plane fit.}
+	\label{fig:lidar_ransac}
+\end{figure}
 
 
 \section*{FP.3 Associate Keypoint Correspondences with Bounding Boxes}

@@ -308,7 +308,8 @@ int main(int argc, const char *argv[])
                     //// STUDENT ASSIGNMENT
                     //// TASK FP.2 -> compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
                     double ttcLidar; 
-                    computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar);
+                    double distance_lidar;
+                    computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar, distance_lidar);
                     //// EOF STUDENT ASSIGNMENT
 
                     //// STUDENT ASSIGNMENT
@@ -335,6 +336,8 @@ int main(int argc, const char *argv[])
                         cv::imshow(windowName, visImg);
                         cout << "Press key to continue to next frame" << endl;
                         cv::waitKey(0);
+
+                        // showLeadVehicleTailPlane((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true, distance_lidar);
                     }
                     bVis = false;
 
