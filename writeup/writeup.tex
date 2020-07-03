@@ -3,6 +3,7 @@
 \usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
+\usepackage{subcaption} % Do not use subfigure.
 
 \title{Track an Object in 3D Space ReadMe}
 \author{Philipp Rapp}
@@ -53,7 +54,8 @@ form of images, see Figure~\ref{fig:matching_3d_objects}.
 
 According to lesson 2, the time-to-collision (TTC) based on a constant velocity model is
 \begin{equation}
-	t_\text{ttc} = \frac{d_1}{v_0} = \frac{d_1 \Delta t}{d_1 - d_0}
+\label{eqn:lidar:ttc}
+	t_\text{ttc} = \frac{d_1}{v_0} = \frac{d_1 \Delta t}{d_0 - d_1}
 \end{equation}
 with $d_0$ being the distance from our vehicle to the lead vehicle in the previous frame (index 0),
 and $d_1$ being the distance from our vehicle to the lead vehicle in the current frame (index 1).
@@ -129,6 +131,200 @@ and the keypoints of the previous frame.
 
 \section*{FP.5 Performance Evaluation 1}
 \textcolor{gray}{\textit{Find examples where the TTC estimate of the Lidar sensor does not seem plausible. Describe your observations and provide a sound argumentation why you think this happened.}}
+
+In order to address this task, I extended my performance evaluation class
+from the midterm project so that I can export the Lidar-based distance, velocity,
+and TTC estimates.
+The values are depicted in Table~\ref{tab:lidar_estimates} and visualized in
+Figures~\ref{fig:lidar_distances} to \ref{fig:lidar_ttc}.
+
+It can be seen in Figure~\ref{fig:lidar_distances} that the distances
+are located approximately on a straight line.
+
+As we are approaching the leading vehicle, we can expect the TTC to decrease.
+I therefore decided to introduce yet another metric: the expected collision time (ECT).
+This makes it easier to spot outliers, as the trend has been removed, and
+the ECT can be assumed to be constant based on a constant-velocity model.
+The ECT is the TTC plus the current time that has passed since the start
+of the program. As the frame rate is $10\,\text{Hz}$, we are adding $0.1\,\text{s}$
+for every frame that has passed.
+The resulting ECT is depicted in Figure~\ref{fig:lidar_ect}, along with the mean
+value and the 1-sigma band.
+It can be seen that there are 3 points over the 1-sigma band
+to the top, and 3 points below the 1-sigma band to the bottom.
+I decided to analyze the one at $t=8$ and $t=14$
+in detail, as those seem to be the largest ``outliers'' to the top and bottom
+respectively.
+In can also be seen that the velocity, which is an
+essential part for computing the TTC
+according to Equation~\ref{eqn:lidar:ttc}, has ``outliers''
+at time steps $t=8$ and $t=14$.
+The velocity in turn is computed based on the distance
+change, so I have a look at the distances, as is also
+recommended to do in the course:
+\textit{"The assertion that the TTC is off should be based on manually estimating the distance to the rear of the preceding vehicle from a top view perspective of the Lidar points."}
+
+The bird's eye view for the time stamps 7 and 8
+is shown in Figure~\ref{fig:lidar_birds_eye_view_1}.
+It can be seen that the RANSAC-based distance estimation
+is shifted a bit towards the head of the leading
+vehicle, therefore decreasing the distance
+delta and the velocity estimate, and at the same
+time increasing the TTC.
+
+The bird's eye view for the time stamps 13 and 14
+is shown in Figure~\ref{fig:lidar_birds_eye_view_2}.
+To be honest, I cannot see why the RANSAC-based
+distance estimate should be ``way off''.
+The RANSAC-fitted line is actually moving quite
+well with the Lidar point cloud.
+
+Summarizing the task, I did not find any TTC which
+deserves to be labelled as ``way off''.
+Only the TTC at time stamp $t=8$ is outside the
+two $\sigma$ domain and therefore a real outlier.
+The other points are within the 2-sigma band of the
+associated Gaussian distribution and therefore should no
+be called outliers.
+
+However, as required,
+I want to give a sound argumentation and
+name several reasons why the TTC seems noisy:
+\begin{enumerate}
+	\item The constant velocity model does not adequately
+		describe the relative velocity between the leading
+		vehicle and our vehicle.
+		Especially as we are heading towards and intersection
+		and therefore decelerating, a constant velocity
+		model might be an oversimplification.
+		I propose to use a constant acceleration model.
+	\item We compute the velocity directly by
+		evaluating the delta between the distance~$d_1$
+		of the previous frame and the distance~$d_0$
+		of the current frame.
+		That makes the velocity highly susceptible to noise.
+		A better approach would be to use some kind of
+		low-pass filter
+		(realized as IIR or FIR filter) in order to smoothen the
+		velocity and TTC signals, or alternatively
+		to use a Kalman filter on top of our
+		constant velocity (or constant acceleration)
+		motion model.
+	\item A geometric reasoning:
+		Neither a bounding box nor a line fit
+		(as done using RANSAC here) is not a perfect model
+		for the shape of the leading vehicle, as its
+		tail is not flat.
+		It might prove beneficial to fit an ellipse
+		segment instead, as this better describes the
+		shape of the leading vehicle's tail.
+\end{enumerate}
+
+
+
+\begin{table}
+	\centering
+	\caption{Lidar-based distance, velocity, and TTC estimates.}
+	\label{tab:lidar_estimates}
+	\begin{tabular}{l|rrr}
+Time index & Distance (m) & Velocity (m/s) & TTC (s) \\ \hline
+0       & 8.015 & 0.549994  & 14.5729 \\
+1       & 7.945 & 0.709996  & 11.1902 \\
+2       & 7.900 & 0.489998  & 16.1225 \\
+3       & 7.843 & 0.590000  & 13.2932 \\
+4       & 7.774 & 0.689998  & 11.2667 \\
+5       & 7.724 & 0.660000  & 11.7030 \\
+6       & 7.653 & 0.730000  & 10.4836 \\
+7       & 7.606 & 0.469999  & 16.1830 \\
+8       & 7.565 & 0.419998  & 18.0120 \\
+9       & 7.510 & 0.579996  & 12.9484 \\
+10      & 7.436 & 0.710001  & 10.4732 \\
+11      & 7.370 & 0.660000  & 11.1667 \\
+12      & 7.290 & 0.809999  & 9.00002 \\
+13      & 7.229 & 0.619998  & 11.6597 \\
+14      & 7.140 & 0.890002  & 8.02245 \\
+15      & 7.062 & 0.730004  & 9.67392 \\
+16      & 6.974 & 0.869999  & 8.01610 \\
+17      & 6.910 & 0.500002  & 13.8199
+	\end{tabular}
+\end{table}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\columnwidth]{./img/lidar_distances}
+	\caption{Lidar distance over time. The time is given in time steps
+			(not in seconds).}
+	\label{fig:lidar_distances}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\columnwidth]{./img/lidar_velocities}
+	\caption{Lidar velocity over time. The time is given in time steps
+			(not in seconds).}
+	\label{fig:lidar_velocities}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\columnwidth]{./img/lidar_ttc}
+	\caption{Lidar-based time-to-collision. The time is given in time steps
+			(not in seconds).}
+	\label{fig:lidar_ttc}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\columnwidth]{./img/lidar_ect}
+	\caption{Lidar-based expected collision time. The time is given in time steps
+			(not in seconds).
+			The red line shows the mean value, and the gray lines
+			show the plus/minus one (dark gray) or two (light gray)
+			$\sigma$ (standard deviation)
+			boundaries.}
+	\label{fig:lidar_ect}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=0.8\textwidth]{%
+			./performance_eval_lidar/lidar_distance_07}
+		\subcaption{Time step 7.}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=0.8\textwidth]{%
+			./performance_eval_lidar/lidar_distance_08}
+		\subcaption{Time step 8.}
+	\end{subfigure}
+	\caption{Lidar distances bird's eye view.
+			The distance between the blue horizontal
+			lines corresponds to one meter.
+			The world view starts at $x=4\,\text{m}$
+			and ends at $x=10\,\text{m}$.}
+	\label{fig:lidar_birds_eye_view_1}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=0.8\textwidth]{%
+			./performance_eval_lidar/lidar_distance_13}
+		\subcaption{Time step 13.}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=0.8\textwidth]{%
+			./performance_eval_lidar/lidar_distance_14}
+		\subcaption{Time step 14.}
+	\end{subfigure}
+	\caption{Lidar distances bird's eye view.
+			The distance between the blue horizontal
+			lines corresponds to one meter.
+			The world view starts at $x=4\,\text{m}$
+			and ends at $x=10\,\text{m}$.}
+	\label{fig:lidar_birds_eye_view_2}
+\end{figure}
+
 
 \section*{FP.6 Performance Evaluation 2}
 \textcolor{gray}{\textit{Run several detector / descriptor combinations and look at the differences in TTC estimation. Find out which methods perform best and also include several examples where camera-based TTC estimation is way off. As with Lidar, describe your observations again and also look into potential reasons.}}

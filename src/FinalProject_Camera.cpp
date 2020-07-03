@@ -133,7 +133,7 @@ int main(int argc, const char *argv[])
         clusterLidarWithROI((dataBuffer.end()-1)->boundingBoxes, (dataBuffer.end() - 1)->lidarPoints, shrinkFactor, P_rect_00, R_rect_00, RT);
 
         // Visualize 3D objects
-        bVis = true;
+        bVis = false; //true;
         if(bVis)
         {
             show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true);
@@ -309,7 +309,9 @@ int main(int argc, const char *argv[])
                     //// TASK FP.2 -> compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
                     double ttcLidar; 
                     double distance_lidar;
-                    computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar, distance_lidar);
+                    double velocity_lidar;
+                    computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar, distance_lidar, velocity_lidar);
+                    performance_eval.addLidarDistanceVelocityTtc(distance_lidar, velocity_lidar, ttcLidar);
                     //// EOF STUDENT ASSIGNMENT
 
                     //// STUDENT ASSIGNMENT
@@ -337,7 +339,10 @@ int main(int argc, const char *argv[])
                         cout << "Press key to continue to next frame" << endl;
                         cv::waitKey(0);
 
-                        // showLeadVehicleTailPlane((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true, distance_lidar);
+                        // For the performance evaluation 1 (FP.5), draw the lidar points and save an image.
+                        // The image files are used for the writeup / readme.
+                        const double x_world_offset = 4.0;
+                        showLeadVehicleTailPlane((dataBuffer.end()-1)->boundingBoxes, x_world_offset, cv::Size(4.0, 6.0), cv::Size(1000, 1000), true, distance_lidar, dataPath + "writeup/performance_eval_lidar/");
                     }
                     bVis = false;
 
@@ -347,6 +352,9 @@ int main(int argc, const char *argv[])
         }
 
     } // eof loop over all images
+
+    // Print some final statistics
+    performance_eval.printLidarStatistics();
 
     return 0;
 }

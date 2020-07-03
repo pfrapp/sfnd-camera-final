@@ -212,6 +212,11 @@ class RingBuffer {
 // in a clean and efficient manner, a class is created which
 // encapsulates the interesting quantities.
 class PerformanceEvaluation {
+
+    //
+    // ** Mid-Term part **
+    //
+
     // Total number of images from which the keypoints or matches originate.
     int image_count_{0};
     // Detector type
@@ -226,6 +231,13 @@ class PerformanceEvaluation {
     double total_detector_time_{0.0};
     // Total processing time (in seconds) for the descriptor computation.
     double total_descriptor_time_{0.0};
+
+    //
+    // ** Final Project part **
+    //
+    std::vector<double> lidar_distances;
+    std::vector<double> lidar_velocities;
+    std::vector<double> lidar_ttc;
 
     public:
         int imageCount() const { return image_count_; }
@@ -305,6 +317,39 @@ class PerformanceEvaluation {
                 cv::namedWindow(windowName, 6);
                 imshow(windowName, visImage);
                 cv::waitKey(0);
+            }
+        }
+
+        //
+        // ** Final Project part **
+        //
+        void addLidarDistanceVelocityTtc(double d, double v, double ttc) {
+            lidar_distances.push_back(d);
+            lidar_velocities.push_back(v);
+            lidar_ttc.push_back(ttc);
+        }
+
+        void printLidarStatistics() const {
+            std::cout << "\n** Lidar TTC statistics **\n";
+            std::cout << "Lidar distances: ";
+            for (const double d : lidar_distances) {
+                std::cout << d << ", ";
+            }
+            std::cout << "\n";
+            std::cout << "Lidar velocities: ";
+            for (const double v : lidar_velocities) {
+                std::cout << v << ", ";
+            }
+            std::cout << "\n";
+            std::cout << "Lidar TTC: ";
+            for (const double ttc : lidar_ttc) {
+                std::cout << ttc << ", ";
+            }
+            std::cout << "\n";
+
+            // Print LaTeX tabular output
+            for (int ii=0; ii<lidar_distances.size(); ii++) {
+                std::cout << ii << "\t& " << lidar_distances[ii] << "\t& " << lidar_velocities[ii] << "\t& " << lidar_ttc[ii] << " \\\\\n";
             }
         }
 

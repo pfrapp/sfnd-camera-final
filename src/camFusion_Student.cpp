@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <iomanip>      // for std::setw() and std::setfill()
 #include <algorithm>
 #include <numeric>
 #include <opencv2/highgui/highgui.hpp>
@@ -129,10 +130,13 @@ void show3DObjects(const std::vector<BoundingBox> &boundingBoxes, cv::Size world
     }
 }
 
-void showLeadVehicleTailPlane(const std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, bool bWait, double distance)
+void showLeadVehicleTailPlane(const std::vector<BoundingBox> &boundingBoxes, double x_world_offset, cv::Size worldSize, cv::Size imageSize, bool bWait, double distance, const std::string& image_path)
 {
     // create topview image
     cv::Mat topviewImg(imageSize, CV_8UC3, cv::Scalar(255, 255, 255));
+
+    // Image counter
+    static int image_counter{0};
 
     for(auto it1=boundingBoxes.begin(); it1!=boundingBoxes.end(); ++it1)
     {
@@ -153,7 +157,7 @@ void showLeadVehicleTailPlane(const std::vector<BoundingBox> &boundingBoxes, cv:
             ywmax = ywmax>yw ? ywmax : yw;
 
             // top-view coordinates
-            int y = (-xw * imageSize.height / worldSize.height) + imageSize.height;
+            int y = (-(xw - x_world_offset) * imageSize.height / worldSize.height) + imageSize.height;
             int x = (-yw * imageSize.width / worldSize.width) + imageSize.width / 2;
 
             // find enclosing rectangle
@@ -170,19 +174,21 @@ void showLeadVehicleTailPlane(const std::vector<BoundingBox> &boundingBoxes, cv:
         cv::rectangle(topviewImg, cv::Point(left, top), cv::Point(right, bottom),cv::Scalar(0,0,0), 2);
 
         // Draw line denoting the tail of the vehicle.
-        int y_line = (-distance * imageSize.height / worldSize.height) + imageSize.height;
+        int y_line = (-(distance - x_world_offset) * imageSize.height / worldSize.height) + imageSize.height;
         cv::line(topviewImg, cv::Point(left, y_line), cv::Point(right, y_line), cv::Scalar(0,0,255), 2);
 
         // augment object with some key data
         char str1[200], str2[200];
         sprintf(str1, "id=%d, #pts=%d", it1->boxID, (int)it1->lidarPoints.size());
-        putText(topviewImg, str1, cv::Point2f(left-250, bottom+50), cv::FONT_ITALIC, 2, currColor);
+        putText(topviewImg, str1, cv::Point2f(left-250, bottom+50), cv::FONT_ITALIC, 1.2, currColor);
         sprintf(str2, "xmin=%2.2f m, yw=%2.2f m", xwmin, ywmax-ywmin);
-        putText(topviewImg, str2, cv::Point2f(left-250, bottom+125), cv::FONT_ITALIC, 2, currColor);  
+        putText(topviewImg, str2, cv::Point2f(left-250, bottom+125), cv::FONT_ITALIC, 1.2, currColor);  
+        sprintf(str2, "RANSAC estimated distance=%2.2f m", distance);
+        putText(topviewImg, str2, cv::Point2f(left-250, bottom+200), cv::FONT_ITALIC, 1.2, currColor);  
     }
 
     // plot distance markers
-    float lineSpacing = 2.0; // gap between distance markers
+    float lineSpacing = 1.0; // gap between distance markers
     int nMarkers = floor(worldSize.height / lineSpacing);
     for (size_t i = 0; i < nMarkers; ++i)
     {
@@ -194,6 +200,11 @@ void showLeadVehicleTailPlane(const std::vector<BoundingBox> &boundingBoxes, cv:
     std::string windowName = "Lidar points and vehicle tail";
     cv::namedWindow(windowName, 1);
     cv::imshow(windowName, topviewImg);
+
+    // save the image
+    stringstream image_name;
+    image_name << image_path << "lidar_distance_" << std::setfill('0') << std::setw(2) << image_counter++ << ".png";
+    cv::imwrite(image_name.str(), topviewImg);
 
     if(bWait)
     {
@@ -332,7 +343,7 @@ void computeTTCCamera(const std::vector<cv::KeyPoint> &kptsPrev, const std::vect
 
 
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
-                     std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC, double &distance)
+                     std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC, double &distance, double &velocity)
 {
     // According to lesson 2, the formula for the TTC is:
     // TTC = d1 / v0 = d1 * deltaT / (d0 - d1)
@@ -386,11 +397,13 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     // Compute the time stamp delta.
     double deltaT = 1.0 / frameRate;
 
-    std::cout << "### d0 = " << d0 << ", d1 = " << d1 << ", vehicle approached " << (d0-d1) << ".\n";
-    std::cout << "### framerate " << frameRate << " Hz, deltaT = " << deltaT << " s.\n";
-
     TTC = d1 * deltaT / (d0 - d1);
     distance = d1;
+    velocity = (d0-d1) / deltaT;
+
+    std::cout << " ## d0 = " << d0 << " m (previous frame), d1 = " << d1 << " m (current frame), vehicle approached " << (d0-d1) << " m.\n";
+    std::cout << " ## framerate = " << frameRate << " Hz, deltaT = " << deltaT << " s.\n";
+    std::cout << " ## Velocity = " << velocity << " m/s = " << (velocity*3.6) << " km/h, TTC (Lidar) = " << TTC << " s.\n";
 }
 
 
