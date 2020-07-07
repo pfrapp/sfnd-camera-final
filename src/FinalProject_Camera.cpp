@@ -320,6 +320,7 @@ int main(int argc, const char *argv[])
                     double ttcCamera;
                     clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);                    
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
+                    performance_eval.addCameraTtc(ttcCamera);
                     //// EOF STUDENT ASSIGNMENT
 
                     bVis = true;
@@ -337,12 +338,12 @@ int main(int argc, const char *argv[])
                         cv::namedWindow(windowName, 4);
                         cv::imshow(windowName, visImg);
                         cout << "Press key to continue to next frame" << endl;
-                        cv::waitKey(0);
+                        // cv::waitKey(0);
 
                         // For the performance evaluation 1 (FP.5), draw the lidar points and save an image.
                         // The image files are used for the writeup / readme.
                         const double x_world_offset = 4.0;
-                        showLeadVehicleTailPlane((dataBuffer.end()-1)->boundingBoxes, x_world_offset, cv::Size(4.0, 6.0), cv::Size(1000, 1000), true, distance_lidar, dataPath + "writeup/performance_eval_lidar/");
+                        // showLeadVehicleTailPlane((dataBuffer.end()-1)->boundingBoxes, x_world_offset, cv::Size(4.0, 6.0), cv::Size(1000, 1000), true, distance_lidar, dataPath + "writeup/performance_eval_lidar/");
                     }
                     bVis = false;
 
@@ -355,6 +356,8 @@ int main(int argc, const char *argv[])
 
     // Print some final statistics
     performance_eval.printLidarStatistics();
+    performance_eval.printCameraStatistics();
+    performance_eval.exportCameraStatisticsToFile(dataPath + "writeup/performance_eval_camera/", sensorFrameRate);
 
     return 0;
 }

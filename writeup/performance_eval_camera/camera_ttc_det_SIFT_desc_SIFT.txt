@@ -1,0 +1,6 @@
+Detector: SIFT
+Descriptor: SIFT
+TTC: nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, 
+ECT: nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, 
+Mean ECT: nan
+STD ECT: nan

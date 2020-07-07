@@ -174,8 +174,10 @@ time increasing the TTC.
 
 The bird's eye view for the time stamps 13 and 14
 is shown in Figure~\ref{fig:lidar_birds_eye_view_2}.
-To be honest, I cannot see why the RANSAC-based
-distance estimate should be ``way off''.
+To be honest, I cannot see a geometric reason
+caused by the Lidar point cloud which would
+cause the RANSAC-based
+distance estimate to be ``way off''.
 The RANSAC-fitted line is actually moving quite
 well with the Lidar point cloud.
 
@@ -184,12 +186,13 @@ deserves to be labelled as ``way off''.
 Only the TTC at time stamp $t=8$ is outside the
 two $\sigma$ domain and therefore a real outlier.
 The other points are within the 2-sigma band of the
-associated Gaussian distribution and therefore should no
-be called outliers.
+associated Gaussian distribution and therefore should not
+be called outliers, but rather noise.
 
 However, as required,
 I want to give a sound argumentation and
-name several reasons why the TTC seems noisy:
+name several reasons why the TTC seems noisy,
+and point out avenues how to improve the TTC estimate:
 \begin{enumerate}
 	\item The constant velocity model does not adequately
 		describe the relative velocity between the leading
@@ -325,9 +328,254 @@ Time index & Distance (m) & Velocity (m/s) & TTC (s) \\ \hline
 	\label{fig:lidar_birds_eye_view_2}
 \end{figure}
 
+\clearpage
 
 \section*{FP.6 Performance Evaluation 2}
 \textcolor{gray}{\textit{Run several detector / descriptor combinations and look at the differences in TTC estimation. Find out which methods perform best and also include several examples where camera-based TTC estimation is way off. As with Lidar, describe your observations again and also look into potential reasons.}}
 
+In order to address this task, I create plots
+for the TTC and for the ECT (expected collision time)
+for all detector and descriptor combinations.
+As in the previous section, the ECT is used because
+it does not contain the decreasing trend that we see in the TTC
+due to us approaching the leading vehicle,
+but rather should be a constant value.
+
+The TTC plots are shown in Figures~\ref{fig:camera:ttc:detector_SHITOMASI}
+to \ref{fig:camera:ttc:detector_SIFT}.
+
+I also compute the expected collision time
+mean and the standard deviation for
+every keypoint detector and descriptor combination.
+The smaller the standard deviation the better.
+The results are shown in Table~\ref{tab:camera:etc_mean_and_std}.
+
+It can be seen that --opposed to Lidar-- there are now really some TTC estimates
+which deserve to be called ``way off''.
+One example would be the combination of the Shi-Tomasi detector with
+the BRIEF descriptor at time step 6. It can be seen that the TTC is even
+estimated to be negative.
+An example where the TTC is estimated way too large is the Harris detector
+in combination with the BRISK descriptor at time step 12.
+
+Based on the standard deviation, I would recommend to use for instance
+\begin{itemize}
+	\item Shi-Tomasi detector with BRISK descriptor,
+	\item Shi-Tomasi detector with BRIEF descriptor,
+	\item Shi-Tomasi detector with SIFT descriptor, or
+	\item AKAZE detector with SIFT descriptor.
+\end{itemize}
+However, even then, the use of some low-pass filter or (model-based)
+Kalman filter would be recommended.
+
+% TTC plots
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SHITOMASI_desc_BRISK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SHITOMASI_desc_BRIEF}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SHITOMASI_desc_ORB}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SHITOMASI_desc_FREAK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SHITOMASI_desc_SIFT}
+	\end{subfigure}
+	\caption{Camera TTC for the Shi-Tomasi detector.}
+	\label{fig:camera:ttc:detector_SHITOMASI}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_HARRIS_desc_BRISK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_HARRIS_desc_BRIEF}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_HARRIS_desc_ORB}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_HARRIS_desc_FREAK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_HARRIS_desc_SIFT}
+	\end{subfigure}
+	\caption{Camera TTC for the Harris detector.}
+	\label{fig:camera:ttc:detector_HARRIS}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_FAST_desc_BRISK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_FAST_desc_BRIEF}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_FAST_desc_ORB}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_FAST_desc_FREAK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_FAST_desc_SIFT}
+	\end{subfigure}
+	\caption{Camera TTC for the FAST detector.}
+	\label{fig:camera:ttc:detector_FAST}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_BRISK_desc_BRISK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_BRISK_desc_BRIEF}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_BRISK_desc_ORB}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_BRISK_desc_FREAK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_BRISK_desc_SIFT}
+	\end{subfigure}
+	\caption{Camera TTC for the BRISK detector.}
+	\label{fig:camera:ttc:detector_BRISK}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_ORB_desc_BRISK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_ORB_desc_BRIEF}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_ORB_desc_ORB}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_ORB_desc_FREAK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_ORB_desc_SIFT}
+	\end{subfigure}
+	\caption{Camera TTC for the ORB detector.}
+	\label{fig:camera:ttc:detector_ORB}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_AKAZE_desc_BRISK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_AKAZE_desc_BRIEF}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_AKAZE_desc_ORB}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_AKAZE_desc_FREAK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_AKAZE_desc_AKAZE}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_AKAZE_desc_SIFT}
+	\end{subfigure}
+	\caption{Camera TTC for the AKAZE detector.}
+	\label{fig:camera:ttc:detector_AKAZE}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SIFT_desc_BRISK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SIFT_desc_BRIEF}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SIFT_desc_FREAK}
+	\end{subfigure}
+	\begin{subfigure}[c]{0.45\columnwidth}
+		\includegraphics[width=\textwidth]{%
+			./img/camera_ttc_det_SIFT_desc_SIFT}
+	\end{subfigure}
+	\caption{Camera TTC for the SIFT detector.}
+	\label{fig:camera:ttc:detector_SIFT}
+\end{figure}
+
+
+\begin{table}
+	\caption{Mean values and standard deviation for the ECT in seconds.
+		The rows are the detectors,
+		and the columns are the descriptors.}
+	\label{tab:camera:etc_mean_and_std}
+	\begin{tabular}{l|l||r|r|r|r|r|r}
+		 			&      & BRISK & BRIEF & ORB & FREAK & AKAZE & SIFT	\\
+		\hline \hline
+		SHITOMASI 	& $\mu$ & 12.3164 & 10.8412 & 11.5964 & 6.95721 & N/A & 13.3082 \\
+		 			& $\sigma$ & 2.5886 & 8.73406 & 2.34092 & 12.6196 & N/A & 1.99947 \\ \hline
+		HARRIS 		& $\mu$ & 29.5739 & 3.29687 & 58.1579 & -24.507 & N/A & -23.0387 \\
+		 			& $\sigma$ & 55.2819 & 75.1791 & 148.966 & 109.502 & N/A & 99.4211 \\ \hline
+		FAST 		& $\mu$ & 13.2524 & 18.8866 & 14.9198 & 15.7288 & N/A & 8.19293 \\
+		 			& $\sigma$ & 5.48023 & 8.88155 & 4.51431 & 17.6802 & N/A & 58.3958 \\ \hline
+		BRISK 		& $\mu$ & NaN & NaN & NaN & NaN & N/A & 12.1515 \\
+		 			& $\sigma$ & NaN & NaN & NaN & NaN & N/A & 7.1678 \\ \hline
+		ORB 			& $\mu$ & NaN & NaN & NaN & NaN & N/A & NaN \\
+					& $\sigma$ & NaN & NaN & NaN & NaN & N/A & NaN \\ \hline
+		AKAZE 		& $\mu$ & 14.2429 & 16.1344 & -23.8059 & 12.5731 & 14.2648 & 14.1947 \\
+		 			& $\sigma$ & 2.32234 & 3.29111 & 164.653 & 7.36428 & 3.13008 & 1.95166 \\ \hline
+		SIFT 		& $\mu$ & NaN & NaN & N/A & NaN & N/A & NaN  \\
+		 			& $\sigma$ & NaN & NaN & N/A & NaN & N/A & NaN  \\
+		\hline
+	\end{tabular}
+\end{table}
 
 \end{document}

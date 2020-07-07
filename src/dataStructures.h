@@ -2,6 +2,8 @@
 #ifndef dataStructures_h
 #define dataStructures_h
 
+#include <fstream>
+#include <sstream>
 #include <vector>
 #include <numeric>      // for std::accumulate
 #include <map>
@@ -239,6 +241,8 @@ class PerformanceEvaluation {
     std::vector<double> lidar_velocities;
     std::vector<double> lidar_ttc;
 
+    std::vector<double> camera_ttc;
+
     public:
         int imageCount() const { return image_count_; }
         void imageCount(int ic) { image_count_ = ic; }
@@ -329,6 +333,10 @@ class PerformanceEvaluation {
             lidar_ttc.push_back(ttc);
         }
 
+        void addCameraTtc(double ttc) {
+            camera_ttc.push_back(ttc);
+        }
+
         void printLidarStatistics() const {
             std::cout << "\n** Lidar TTC statistics **\n";
             std::cout << "Lidar distances: ";
@@ -351,6 +359,60 @@ class PerformanceEvaluation {
             for (int ii=0; ii<lidar_distances.size(); ii++) {
                 std::cout << ii << "\t& " << lidar_distances[ii] << "\t& " << lidar_velocities[ii] << "\t& " << lidar_ttc[ii] << " \\\\\n";
             }
+        }
+
+        void printCameraStatistics() const {
+            std::cout << "\n** Camera TTC statistics **\n";
+            std::cout << "Camera TTC: ";
+            for (const double ttc : camera_ttc) {
+                std::cout << ttc << ", ";
+            }
+            std::cout << "\n";
+
+            // Print LaTeX tabular output
+            for (int ii=0; ii<camera_ttc.size(); ii++) {
+                std::cout << ii << "\t& " << camera_ttc[ii] << " \\\\\n";
+            }
+        }
+
+        void exportCameraStatisticsToFile(const std::string &path, double frame_rate) const {
+            std::fstream fid;
+            std::stringstream filename;
+            filename << path << "camera_ttc_det_" << detector_type_ << "_desc_" << descriptor_type_ << ".txt";
+            fid.open(filename.str(), std::ios_base::out | std::ios_base::trunc);
+            fid << "Detector: " << detector_type_ << std::endl;
+            fid << "Descriptor: " << descriptor_type_ << std::endl;
+
+            // Compute the expected collision time
+            std::vector<double> camera_ect;
+            for (int n = 0; n < camera_ttc.size(); n++) {
+                camera_ect.push_back(camera_ttc[n] + n/frame_rate);
+            }
+
+            fid << "TTC: ";
+            for (const double ttc : camera_ttc) {
+                fid << ttc << ", ";
+            }
+            fid << std::endl;
+            fid << "ECT: ";
+            for (const double ect : camera_ect) {
+                fid << ect << ", ";
+            }
+            fid << std::endl;
+
+            // Compute the mean and sample standard deviation of the expected collision time
+            double mean_ect = std::accumulate(camera_ect.begin(), camera_ect.end(), 0.0);
+            mean_ect /= camera_ect.size();
+
+            double std_ect = std::accumulate(camera_ect.begin(), camera_ect.end(), 0.0, [&mean_ect](const double previous, const double ect) {
+                        return (previous + (ect - mean_ect) * (ect - mean_ect));
+            });
+            std_ect = std::sqrt(std_ect / (camera_ect.size() - 1));
+
+            fid << "Mean ECT: " << mean_ect << std::endl;
+            fid << "STD ECT: " << std_ect << std::endl;
+
+            fid.close();
         }
 
 };
