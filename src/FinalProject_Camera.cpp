@@ -338,7 +338,7 @@ int main(int argc, const char *argv[])
                         cv::namedWindow(windowName, 4);
                         cv::imshow(windowName, visImg);
                         cout << "Press key to continue to next frame" << endl;
-                        // cv::waitKey(0);
+                        cv::waitKey(0);
 
                         // For the performance evaluation 1 (FP.5), draw the lidar points and save an image.
                         // The image files are used for the writeup / readme.

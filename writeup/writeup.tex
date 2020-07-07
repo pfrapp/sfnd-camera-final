@@ -184,7 +184,7 @@ well with the Lidar point cloud.
 Summarizing the task, I did not find any TTC which
 deserves to be labelled as ``way off''.
 Only the TTC at time stamp $t=8$ is outside the
-two $\sigma$ domain and therefore a real outlier.
+2-sigma domain and therefore a real outlier.
 The other points are within the 2-sigma band of the
 associated Gaussian distribution and therefore should not
 be called outliers, but rather noise.
@@ -197,7 +197,7 @@ and point out avenues how to improve the TTC estimate:
 	\item The constant velocity model does not adequately
 		describe the relative velocity between the leading
 		vehicle and our vehicle.
-		Especially as we are heading towards and intersection
+		Especially as we are heading towards an intersection
 		and therefore decelerating, a constant velocity
 		model might be an oversimplification.
 		I propose to use a constant acceleration model.
@@ -215,7 +215,7 @@ and point out avenues how to improve the TTC estimate:
 		motion model.
 	\item A geometric reasoning:
 		Neither a bounding box nor a line fit
-		(as done using RANSAC here) is not a perfect model
+		(as done using RANSAC here) is a perfect model
 		for the shape of the leading vehicle, as its
 		tail is not flat.
 		It might prove beneficial to fit an ellipse
@@ -358,7 +358,17 @@ estimated to be negative.
 An example where the TTC is estimated way too large is the Harris detector
 in combination with the BRISK descriptor at time step 12.
 
-Based on the standard deviation, I would recommend to use for instance
+In order to figure out what went wrong, I had a detailed look into the
+setting with keypoint detector Shi-Tomasi and descriptor BRIEF.
+The terminal output is shown in Figure~\ref{fig:camera:detail}.
+It can be seen that my
+outlier checking condition in camFusion\_Student.cpp:286 \\
+\verb+(std::abs(euclidean_diff - euclidean_diff_mean) < 2.0 * euclidean_diff_std)+
+does not capture all outliers.
+Therefore, some keypoints are mismatched, resulting in the outlier TTC.
+
+Based on the ECT standard deviation as given in Table~\ref{tab:camera:etc_mean_and_std},
+I would recommend to use for instance
 \begin{itemize}
 	\item Shi-Tomasi detector with BRISK descriptor,
 	\item Shi-Tomasi detector with BRIEF descriptor,
@@ -367,6 +377,8 @@ Based on the standard deviation, I would recommend to use for instance
 \end{itemize}
 However, even then, the use of some low-pass filter or (model-based)
 Kalman filter would be recommended.
+
+
 
 % TTC plots
 \begin{figure}
@@ -577,5 +589,14 @@ Kalman filter would be recommended.
 		\hline
 	\end{tabular}
 \end{table}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\textwidth]{%
+		./img/camera_ttc_outlier}
+	\caption{Detailed analysis of a camera TTC outlier.
+			Not all keypoint mismatch outliers are caught.}
+	\label{fig:camera:detail}
+\end{figure}
 
 \end{document}
